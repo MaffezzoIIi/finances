@@ -1,0 +1,162 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Settings, X } from 'lucide-react';
+import { api } from './api.js';
+import { formatBRL } from './utils/money.js';
+import ExpenseForm from './components/ExpenseForm.jsx';
+import ExpenseList from './components/ExpenseList.jsx';
+import ExpenseCharts from './components/ExpenseCharts.jsx';
+import CategoryFilter from './components/CategoryFilter.jsx';
+import ManagePanel from './components/ManagePanel.jsx';
+
+export default function App() {
+  const [expenses, setExpenses] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const loadAll = useCallback(async () => {
+    const [exp, cats, pms] = await Promise.all([
+      api.expenses.list(),
+      api.categories.list(),
+      api.paymentMethods.list(),
+    ]);
+    setExpenses(exp);
+    setCategories(cats);
+    setPaymentMethods(pms);
+    setFilterCategoryId((f) => (f && !cats.some((c) => String(c.id) === f) ? '' : f));
+  }, []);
+
+  // Runs an action, shows API errors in the banner; returns the result or null on failure.
+  const run = useCallback(async (fn) => {
+    try {
+      return (await fn()) ?? true;
+    } catch (e) {
+      setError(e.message);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    run(loadAll).finally(() => setLoading(false));
+  }, [run, loadAll]);
+
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(''), 6000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  const lookupActions = (kind) => ({
+    create: (name) => run(async () => {
+      const item = await api[kind].create({ name });
+      await loadAll();
+      return item;
+    }),
+    rename: (id, name) => run(async () => {
+      await api[kind].update(id, { name });
+      await loadAll();
+    }),
+    remove: (item) => {
+      if (!window.confirm(`Excluir "${item.name}"?`)) return;
+      return run(async () => {
+        await api[kind].remove(item.id);
+        await loadAll();
+      });
+    },
+  });
+  const categoryActions = lookupActions('categories');
+  const paymentActions = lookupActions('paymentMethods');
+
+  const addExpense = (data) => run(async () => {
+    await api.expenses.create(data);
+    await loadAll();
+  });
+
+  const saveExpense = (id, data) => run(async () => {
+    await api.expenses.update(id, data);
+    setEditingId(null);
+    await loadAll();
+  });
+
+  const deleteExpense = (expense) => {
+    if (!window.confirm(`Excluir "${expense.description}" (${formatBRL(expense.amountCents)})?`)) return;
+    run(async () => {
+      await api.expenses.remove(expense.id);
+      if (editingId === expense.id) setEditingId(null);
+      await loadAll();
+    });
+  };
+
+  const visible = filterCategoryId
+    ? expenses.filter((e) => String(e.categoryId) === filterCategoryId)
+    : expenses;
+  const activeCategoryName = filterCategoryId
+    ? categories.find((c) => String(c.id) === filterCategoryId)?.name
+    : '';
+
+  return (
+    <div className="container">
+      <header className="header">
+        <h1>💰 Meus Gastos</h1>
+        <button className="btn btn-ghost" onClick={() => setManageOpen(true)} title="Gerenciar categorias e formas de pagamento">
+          <Settings size={18} /> Gerenciar
+        </button>
+      </header>
+
+      {error && (
+        <div className="alert" role="alert">
+          <span>{error}</span>
+          <button className="icon-btn" onClick={() => setError('')} aria-label="Fechar aviso"><X size={16} /></button>
+        </div>
+      )}
+
+      <ExpenseForm
+        categories={categories}
+        paymentMethods={paymentMethods}
+        onSubmit={addExpense}
+        onError={setError}
+        categoryActions={categoryActions}
+        paymentActions={paymentActions}
+      />
+
+      <div className="toolbar">
+        <CategoryFilter categories={categories} value={filterCategoryId} onChange={setFilterCategoryId} />
+      </div>
+
+      <ExpenseCharts
+        expenses={expenses}
+        filteredExpenses={visible}
+        activeCategoryName={activeCategoryName}
+      />
+
+      <ExpenseList
+        expenses={visible}
+        loading={loading}
+        filtered={!!filterCategoryId}
+        editingId={editingId}
+        onEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onSave={saveExpense}
+        onDelete={deleteExpense}
+        onError={setError}
+        categories={categories}
+        paymentMethods={paymentMethods}
+        categoryActions={categoryActions}
+        paymentActions={paymentActions}
+      />
+
+      <ManagePanel
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        tabs={[
+          { key: 'categories', label: 'Categorias', items: categories, actions: categoryActions },
+          { key: 'paymentMethods', label: 'Formas de pagamento', items: paymentMethods, actions: paymentActions },
+        ]}
+      />
+    </div>
+  );
+}
