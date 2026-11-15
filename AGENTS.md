@@ -36,8 +36,9 @@ server/src/
   index.js            entry: creates server/data/, opens DB, listens on PORT
   app.js              createApp(db): mounts routers, /api 404, central error handler
   db.js               openDb(file): schema (CREATE IF NOT EXISTS), ad-hoc migrations, first-run seeds
-  validation.js       HttpError, validateName, validateExpense, isValidDate
+  validation.js       HttpError, validateName, validateExpense, validateSimulation, isValidDate
   routes/expenses.js  CRUD /api/expenses (JOINs category + payment method names)
+  routes/financing.js CRUD /api/financing-simulations
   routes/lookup.js    generic CRUD factory reused for categories AND payment methods
 server/test/api.test.js  API integration tests (fresh ':memory:' DB per test)
 
@@ -47,17 +48,21 @@ client/src/
   api.js              fetch wrapper; api.{expenses,categories,paymentMethods}.{list,create,update,remove}
   styles.css          all styles; CSS variables in :root
   components/
-    ExpenseForm.jsx     create form (keeps date/category/payment after submit)
-    ExpenseList.jsx     table + footer total (respects filter)
-    ExpenseRow.jsx      read row / inline EditRow (Enter saves, Esc cancels)
-    ExpenseCharts.jsx   SVG donut + bars by category (month selector) and 6-month bar chart
-    CategoryFilter.jsx  category <select>
-    ManagePanel.jsx     drawer with tabs to add/rename/delete categories & payment methods
-    OptionSelect.jsx    <select> whose last option "+ Nova…" becomes an inline create input
-    expensePayload.js   toExpensePayload(draft) -> { data } | { error }  (shared by form + edit row)
+    ExpenseForm.jsx        create form (keeps date/category/payment after submit)
+    ExpenseList.jsx        table + footer total (respects filter)
+    ExpenseRow.jsx         read row / inline EditRow (Enter saves, Esc cancels)
+    ExpenseCharts.jsx      SVG donut + bars by category (month selector) and 6-month bar chart
+    CategoryFilter.jsx     category & payment-method <select> filters
+    ManagePanel.jsx        drawer with tabs to add/rename/delete categories & payment methods
+    OptionSelect.jsx       <select> whose last option "+ Nova…" becomes an inline create input
+    expensePayload.js      toExpensePayload(draft) -> { data } | { error }  (shared by form + edit row)
+    FinancingSimulator.jsx financing simulator tab (form, summary, yearly table, saved simulations)
+    BalanceChart.jsx       SVG balance evolution chart for financing simulations
+    financingPayload.js    toSimulationPayload(draft) -> { data } | { error }
   utils/
-    money.js            parseBRL, formatBRL, centsToInput, formatDate, today
-    chartData.js        pure chart aggregations (getAvailableMonths, buildCategoryBreakdown, buildMonthlySeries, ...)
+    money.js               parseBRL, formatBRL, centsToInput, formatDate, today
+    chartData.js           pure chart aggregations (getAvailableMonths, buildCategoryBreakdown, buildMonthlySeries, ...)
+    financing.js           pure financing & FGTS amortization calculations
 ```
 
 ## Data model (SQLite)
@@ -72,6 +77,18 @@ expenses (
   date TEXT NOT NULL,                       -- 'YYYY-MM-DD'
   category_id INTEGER NOT NULL REFERENCES categories(id),
   payment_method_id INTEGER NOT NULL REFERENCES payment_methods(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+)
+financing_simulations (
+  id INTEGER PK AUTOINCREMENT,
+  name TEXT NOT NULL,
+  balance_cents INTEGER NOT NULL CHECK (balance_cents > 0),
+  annual_rate_bps INTEGER NOT NULL CHECK (annual_rate_bps BETWEEN 0 AND 10000),
+  monthly_payment_cents INTEGER NOT NULL CHECK (monthly_payment_cents > 0),
+  monthly_fees_cents INTEGER NOT NULL DEFAULT 0 CHECK (monthly_fees_cents >= 0),
+  fgts_balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (fgts_balance_cents >= 0),
+  fgts_monthly_deposit_cents INTEGER NOT NULL DEFAULT 0 CHECK (fgts_monthly_deposit_cents >= 0),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 )
@@ -90,7 +107,7 @@ All JSON, camelCase. Errors are always `{ "error": "<pt-BR message>" }`.
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| GET    | `/api/expenses[?categoryId=N]` | – | 200 `Expense[]` ordered `date DESC, id DESC` | – |
+| GET    | `/api/expenses[?categoryId=N&paymentMethodId=N]` | – | 200 `Expense[]` ordered `date DESC, id DESC` | – |
 | POST   | `/api/expenses` | `ExpenseInput` | 201 `Expense` | 400 |
 | PUT    | `/api/expenses/:id` | `ExpenseInput` (full replace) | 200 `Expense` | 400, 404 |
 | DELETE | `/api/expenses/:id` | – | 204 | 404 |
@@ -99,6 +116,10 @@ All JSON, camelCase. Errors are always `{ "error": "<pt-BR message>" }`.
 | PUT    | `/api/categories/:id` | `{ name }` | 200 `Lookup` | 400, 404, 409 |
 | DELETE | `/api/categories/:id` | – | 204 | 404, 409 if `usageCount > 0` |
 | *      | `/api/payment-methods[/:id]` | same as categories | | |
+| GET    | `/api/financing-simulations` | – | 200 `Simulation[]` ordered `name COLLATE NOCASE, id` | – |
+| POST   | `/api/financing-simulations` | `SimulationInput` | 201 `Simulation` | 400 |
+| PUT    | `/api/financing-simulations/:id` | `SimulationInput` | 200 `Simulation` | 400, 404 |
+| DELETE | `/api/financing-simulations/:id` | – | 204 | 404 |
 | *      | any other `/api/*` | – | – | 404 |
 
 ```ts
@@ -137,7 +158,7 @@ messages, seeds) in **Brazilian Portuguese** (`lang="pt-BR"`).
 - `App.jsx` is the single source of truth. Every mutation goes through `run(fn)` (catches errors and shows them
   in the auto-dismissing alert banner; returns result or `true`, or `null` on failure) and then calls `loadAll()`
   to refetch expenses + both lookups. No optimistic updates, no caching.
-- Category filtering is done client-side in `App.jsx` (the API's `?categoryId=` is unused by the UI).
+- Category and payment-method filtering is done client-side in `App.jsx` (the API's `?categoryId=` and `?paymentMethodId=` are unused by the UI).
 - `<select>` values are **strings**; IDs are converted with `Number()` in `toExpensePayload` and compared via
   `String(id)`.
 - Client-side validation (`toExpensePayload`) mirrors the server; the server remains authoritative.
@@ -158,10 +179,6 @@ messages, seeds) in **Brazilian Portuguese** (`lang="pt-BR"`).
 
 ## Known issues
 
-- `client/src/utils/money.test.js` imports `../components/subscriptionPayload.js` (and tests
-  `toSubscriptionPayload`) from the removed subscriptions feature. That file doesn't exist, so the whole file
-  fails with `ERR_MODULE_NOT_FOUND` and `npm test` fails at the client step. Fix by deleting that import and the
-  `toSubscriptionPayload` test.
 - No pagination: `GET /api/expenses` returns every row.
 
 ## Checklist for changes
@@ -171,4 +188,5 @@ messages, seeds) in **Brazilian Portuguese** (`lang="pt-BR"`).
    `ExpenseRow.jsx` (read + edit), `ExpenseList.jsx` headers/`colSpan`s, README.
 2. New lookup-style list → reuse `createLookupRouter` in `app.js`, add to `api.js`, add a tab in `App.jsx`'s
    `ManagePanel` `tabs` and `SINGULAR` in `ManagePanel.jsx`.
-3. Run `npm test` and `npm run build` before finishing.
+3. Run the `docs-sync` skill (`.agents/skills/docs-sync/SKILL.md`) before finishing any non-trivial code change.
+4. Run `npm test` and `npm run build` before finishing.

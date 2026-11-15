@@ -31,7 +31,7 @@ npm run build         # build de produção do frontend (client/dist)
   É uma estimativa: não considera a correção pela TR. Simulações podem ser salvas.
 - Cadastro de gasto: descrição, valor (formato `12,50`), data, categoria e forma de pagamento.
 - Lista ordenada pela data mais recente, com ✏️ edição inline (Enter salva, Esc cancela) e 🗑️ exclusão com confirmação.
-- Filtro por categoria e total no rodapé (respeita o filtro).
+- Filtro por categoria e forma de pagamento, com total no rodapé (respeita os filtros).
 - Categorias e formas de pagamento pré-definidas; crie novas direto no select ("+ Nova…") ou
   no painel ⚙️ **Gerenciar**, onde também é possível renomear e excluir.
   Itens em uso por algum gasto não podem ser excluídos.
@@ -40,7 +40,7 @@ npm run build         # build de produção do frontend (client/dist)
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET/POST | `/api/expenses` | Lista (`?categoryId=` opcional) / cria |
+| GET/POST | `/api/expenses` | Lista (`?categoryId=` e `?paymentMethodId=` opcionais) / cria |
 | PUT/DELETE | `/api/expenses/:id` | Atualiza / exclui |
 | GET/POST | `/api/categories` | Lista (com `usageCount`) / cria |
 | PUT/DELETE | `/api/categories/:id` | Renomeia / exclui (409 se em uso) |
