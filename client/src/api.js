@@ -22,4 +22,9 @@ export const api = {
   categories: crud('/categories'),
   paymentMethods: crud('/payment-methods'),
   financingSimulations: crud('/financing-simulations'),
+  debts: crud('/debts'),
+  emergencyFund: {
+    get: () => request('GET', '/emergency-fund'),
+    update: (data) => request('PUT', '/emergency-fund', data),
+  },
 };

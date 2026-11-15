@@ -225,3 +225,71 @@ describe(SIM_PATH, () => {
     await request(app).delete(`${SIM_PATH}/${body.id}`).expect(404);
   });
 });
+
+describe('/api/debts', () => {
+  test('CRUD and validation', async () => {
+    const { body: empty } = await request(app).get('/api/debts').expect(200);
+    assert.deepEqual(empty, []);
+
+    const { body: created } = await request(app).post('/api/debts').send({
+      name: 'Financiamento carro',
+      monthlyPaymentCents: 120000,
+      endMonth: '2027-06',
+    }).expect(201);
+    assert.equal(created.name, 'Financiamento carro');
+    assert.equal(created.monthlyPaymentCents, 120000);
+    assert.equal(created.endMonth, '2027-06');
+
+    const { body: updated } = await request(app).put(`/api/debts/${created.id}`).send({
+      name: 'Consignado',
+      monthlyPaymentCents: 80000,
+      endMonth: null,
+    }).expect(200);
+    assert.equal(updated.name, 'Consignado');
+    assert.equal(updated.endMonth, null);
+
+    await request(app).post('/api/debts').send({
+      name: '',
+      monthlyPaymentCents: 0,
+      endMonth: '2027-13',
+    }).expect(400);
+
+    await request(app).delete(`/api/debts/${created.id}`).expect(204);
+    await request(app).delete(`/api/debts/${created.id}`).expect(404);
+    await request(app).put(`/api/debts/${created.id}`).send({
+      name: 'X', monthlyPaymentCents: 100, endMonth: null,
+    }).expect(404);
+  });
+});
+
+describe('/api/emergency-fund', () => {
+  test('returns defaults before first save, updates and cascades category deletes', async () => {
+    const { body: cats } = await request(app).get('/api/categories').expect(200);
+    const { body: initial } = await request(app).get('/api/emergency-fund').expect(200);
+    assert.equal(initial.months, 6);
+    assert.equal(initial.savedCents, 0);
+    assert.equal(initial.essentialCategoryIds.length, 5);
+
+    const moradia = cats.find((c) => c.name === 'Moradia');
+    const { body: saved } = await request(app).put('/api/emergency-fund').send({
+      months: 12,
+      savedCents: 500000,
+      essentialCategoryIds: [moradia.id],
+    }).expect(200);
+    assert.deepEqual(saved, {
+      months: 12,
+      savedCents: 500000,
+      essentialCategoryIds: [moradia.id],
+    });
+
+    await request(app).put('/api/emergency-fund').send({
+      months: 0,
+      savedCents: -1,
+      essentialCategoryIds: [999999],
+    }).expect(400);
+
+    await request(app).delete(`/api/categories/${moradia.id}`).expect(204);
+    const { body: afterDelete } = await request(app).get('/api/emergency-fund').expect(200);
+    assert.deepEqual(afterDelete.essentialCategoryIds, []);
+  });
+});

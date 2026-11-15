@@ -276,10 +276,44 @@ input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--primary)
 .legend-line { display: inline-block; width: 18px; border-top: 3px solid; vertical-align: middle; margin-right: 6px; }
 .legend-line.dashed { border-top-style: dashed; }
 
+.view-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.view-tab {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 500;
+  cursor: pointer;
+}
+.view-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.cat-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 12px; }
+.check-item { display: flex; align-items: center; gap: 6px; font-size: .9rem; cursor: pointer; }
+.check-item input { width: auto; }
+
+.progress-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.progress-head { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: 8px; }
+.progress-track { height: 10px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--green); transition: width .2s ease; }
+
+.debt-section { margin-top: 24px; }
+.debt-section h2 { font-size: 1.1rem; margin: 0 0 12px; }
+.debt-form { grid-template-columns: 1fr 160px 150px auto; }
+
 @media (max-width: 860px) {
   .charts-grid { grid-template-columns: 1fr; }
   .fin-grid { grid-template-columns: 1fr; }
   .expense-form { grid-template-columns: 1fr 1fr; }
-  .expense-form .f-desc { grid-column: 1 / -1; }
+  .expense-form .f-desc, .debt-form .grow { grid-column: 1 / -1; }
   .expense-form .btn { grid-column: 1 / -1; justify-content: center; }
 }

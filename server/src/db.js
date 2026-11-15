@@ -39,6 +39,22 @@ export function openDb(file) {
       created_at                 TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at                 TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS debts (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      name                  TEXT    NOT NULL,
+      monthly_payment_cents INTEGER NOT NULL CHECK (monthly_payment_cents > 0),
+      end_month             TEXT,
+      created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at            TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS emergency_fund_settings (
+      id          INTEGER PRIMARY KEY CHECK (id = 1),
+      months      INTEGER NOT NULL CHECK (months BETWEEN 1 AND 60),
+      saved_cents INTEGER NOT NULL DEFAULT 0 CHECK (saved_cents >= 0)
+    );
+    CREATE TABLE IF NOT EXISTS emergency_fund_categories (
+      category_id INTEGER PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE
+    );
   `);
 
   const cols = db.prepare('PRAGMA table_info(expenses)').all();

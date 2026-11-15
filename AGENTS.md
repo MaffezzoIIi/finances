@@ -37,9 +37,11 @@ server/src/
   app.js              createApp(db): mounts routers, /api 404, central error handler
   db.js               openDb(file): schema (CREATE IF NOT EXISTS), ad-hoc migrations, first-run seeds
   validation.js       HttpError, validateName, validateExpense, validateSimulation, isValidDate
-  routes/expenses.js  CRUD /api/expenses (JOINs category + payment method names)
-  routes/financing.js CRUD /api/financing-simulations
-  routes/lookup.js    generic CRUD factory reused for categories AND payment methods
+  routes/expenses.js       CRUD /api/expenses (JOINs category + payment method names)
+  routes/financing.js      CRUD /api/financing-simulations
+  routes/debts.js          CRUD /api/debts
+  routes/emergencyFund.js  GET/PUT /api/emergency-fund
+  routes/lookup.js         generic CRUD factory reused for categories AND payment methods
 server/test/api.test.js  API integration tests (fresh ':memory:' DB per test)
 
 client/src/
@@ -59,10 +61,14 @@ client/src/
     FinancingSimulator.jsx financing simulator tab (form, summary, yearly table, saved simulations)
     BalanceChart.jsx       SVG balance evolution chart for financing simulations
     financingPayload.js    toSimulationPayload(draft) -> { data } | { error }
+    EmergencyFund.jsx      emergency fund tab (settings, essential breakdown, progress)
+    DebtList.jsx           debts table with inline add/edit/delete
+    debtPayload.js         toDebtPayload(draft, currentMonth) -> { data } | { error }
   utils/
     money.js               parseBRL, formatBRL, centsToInput, formatDate, today
     chartData.js           pure chart aggregations (getAvailableMonths, buildCategoryBreakdown, buildMonthlySeries, ...)
     financing.js           pure financing & FGTS amortization calculations
+    emergencyFund.js       pure emergency fund & debt-horizon calculations
 ```
 
 ## Data model (SQLite)
@@ -120,6 +126,12 @@ All JSON, camelCase. Errors are always `{ "error": "<pt-BR message>" }`.
 | POST   | `/api/financing-simulations` | `SimulationInput` | 201 `Simulation` | 400 |
 | PUT    | `/api/financing-simulations/:id` | `SimulationInput` | 200 `Simulation` | 400, 404 |
 | DELETE | `/api/financing-simulations/:id` | – | 204 | 404 |
+| GET    | `/api/debts` | – | 200 `Debt[]` ordered `name COLLATE NOCASE, id` | – |
+| POST   | `/api/debts` | `DebtInput` | 201 `Debt` | 400 |
+| PUT    | `/api/debts/:id` | `DebtInput` | 200 `Debt` | 400, 404 |
+| DELETE | `/api/debts/:id` | – | 204 | 404 |
+| GET    | `/api/emergency-fund` | – | 200 `FundSettings` | – |
+| PUT    | `/api/emergency-fund` | `FundSettings` | 200 `FundSettings` | 400 |
 | *      | any other `/api/*` | – | – | 404 |
 
 ```ts

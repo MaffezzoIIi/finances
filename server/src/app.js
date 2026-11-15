@@ -2,6 +2,8 @@ import express from 'express';
 import { createLookupRouter } from './routes/lookup.js';
 import { createExpensesRouter } from './routes/expenses.js';
 import { createFinancingRouter } from './routes/financing.js';
+import { createDebtsRouter } from './routes/debts.js';
+import { createEmergencyFundRouter } from './routes/emergencyFund.js';
 
 export function createApp(db) {
   const app = express();
@@ -15,6 +17,8 @@ export function createApp(db) {
   }));
   app.use('/api/expenses', createExpensesRouter(db));
   app.use('/api/financing-simulations', createFinancingRouter(db));
+  app.use('/api/debts', createDebtsRouter(db));
+  app.use('/api/emergency-fund', createEmergencyFundRouter(db));
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 

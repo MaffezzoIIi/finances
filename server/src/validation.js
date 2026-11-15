@@ -66,3 +66,45 @@ export function validateSimulation(body = {}) {
     monthlyFeesCents, fgtsBalanceCents, fgtsMonthlyDepositCents,
   };
 }
+
+export function isValidYearMonth(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}$/.test(s)) return false;
+  const month = Number(s.slice(5, 7));
+  return month >= 1 && month <= 12;
+}
+
+export function validateDebt(body = {}) {
+  const errors = [];
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const { monthlyPaymentCents, endMonth = null } = body;
+
+  if (!name) errors.push('O nome é obrigatório.');
+  else if (name.length > 100) errors.push('O nome deve ter no máximo 100 caracteres.');
+  if (!isCents(monthlyPaymentCents, 1)) errors.push('A parcela mensal deve ser maior que zero.');
+  if (endMonth !== null && !isValidYearMonth(endMonth)) errors.push('Mês final inválido.');
+
+  if (errors.length) throw new HttpError(400, errors.join(' '));
+  return { name, monthlyPaymentCents, endMonth };
+}
+
+export function validateFundSettings(db, body = {}) {
+  const errors = [];
+  const { months, savedCents = 0, essentialCategoryIds } = body;
+
+  if (!Number.isInteger(months) || months < 1 || months > 60) {
+    errors.push('O número de meses deve ser entre 1 e 60.');
+  }
+  if (!isCents(savedCents, 0)) errors.push('O valor já guardado é inválido.');
+  if (!Array.isArray(essentialCategoryIds)) {
+    errors.push('As categorias essenciais são obrigatórias.');
+  } else if (essentialCategoryIds.some((id) => !exists(db, 'categories', id))) {
+    errors.push('Categoria essencial inválida.');
+  }
+
+  if (errors.length) throw new HttpError(400, errors.join(' '));
+  return {
+    months,
+    savedCents,
+    essentialCategoryIds: [...new Set(essentialCategoryIds)],
+  };
+}
