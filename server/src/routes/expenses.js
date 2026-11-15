@@ -13,8 +13,9 @@ const ORDER = 'ORDER BY e.date DESC, e.id DESC';
 export function createExpensesRouter(db) {
   const router = Router();
 
-  const selectAll = db.prepare(`${SELECT} ${ORDER}`);
-  const selectByCategory = db.prepare(`${SELECT} WHERE e.category_id = ? ${ORDER}`);
+  const selectList = db.prepare(
+    `${SELECT} WHERE e.category_id = COALESCE(?, e.category_id) AND e.payment_method_id = COALESCE(?, e.payment_method_id) ${ORDER}`,
+  );
   const selectOne = db.prepare(`${SELECT} WHERE e.id = ?`);
   const insert = db.prepare(`
     INSERT INTO expenses (description, amount_cents, date, category_id, payment_method_id)
@@ -33,8 +34,8 @@ export function createExpensesRouter(db) {
   const params = (e) => [e.description, e.amountCents, e.date, e.categoryId, e.paymentMethodId];
 
   router.get('/', (req, res) => {
-    const { categoryId } = req.query;
-    res.json(categoryId ? selectByCategory.all(Number(categoryId)) : selectAll.all());
+    const { categoryId, paymentMethodId } = req.query;
+    res.json(selectList.all(categoryId ? Number(categoryId) : null, paymentMethodId ? Number(paymentMethodId) : null));
   });
 
   router.post('/', (req, res) => {

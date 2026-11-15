@@ -21,7 +21,7 @@ export default function ExpenseList({ expenses, loading, filtered, editingId, on
           {expenses.length === 0 ? (
             <tr>
               <td colSpan={6} className="empty">
-                {loading ? 'Carregando…' : filtered ? 'Nenhum gasto nesta categoria.' : 'Nenhum gasto cadastrado.'}
+                {loading ? 'Carregando…' : filtered ? 'Nenhum gasto encontrado para este filtro.' : 'Nenhum gasto cadastrado.'}
               </td>
             </tr>
           ) : (

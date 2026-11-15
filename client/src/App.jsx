@@ -21,6 +21,7 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterPaymentId, setFilterPaymentId] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +39,7 @@ export default function App() {
     setPaymentMethods(pms);
     setSimulations(sims);
     setFilterCategoryId((f) => (f && !cats.some((c) => String(c.id) === f) ? '' : f));
+    setFilterPaymentId((f) => (f && !pms.some((p) => String(p.id) === f) ? '' : f));
   }, []);
 
   // Runs an action, shows API errors in the banner; returns the result or null on failure.
@@ -101,31 +103,16 @@ export default function App() {
     });
   };
 
-  const simulationActions = {
-    create: (data) => run(async () => {
-      const sim = await api.financingSimulations.create(data);
-      await loadAll();
-      return sim;
-    }),
-    update: (id, data) => run(async () => {
-      await api.financingSimulations.update(id, data);
-      await loadAll();
-    }),
-    remove: (sim) => {
-      if (!window.confirm(`Excluir a simulação "${sim.name}"?`)) return null;
-      return run(async () => {
-        await api.financingSimulations.remove(sim.id);
-        await loadAll();
-      });
-    },
-  };
-
-  const visible = filterCategoryId
-    ? expenses.filter((e) => String(e.categoryId) === filterCategoryId)
+  const byPayment = filterPaymentId
+    ? expenses.filter((e) => String(e.paymentMethodId) === filterPaymentId)
     : expenses;
-  const activeCategoryName = filterCategoryId
-    ? categories.find((c) => String(c.id) === filterCategoryId)?.name
-    : '';
+  const visible = filterCategoryId
+    ? byPayment.filter((e) => String(e.categoryId) === filterCategoryId)
+    : byPayment;
+  const activeFilterName = [
+    filterCategoryId && categories.find((c) => String(c.id) === filterCategoryId)?.name,
+    filterPaymentId && paymentMethods.find((p) => String(p.id) === filterPaymentId)?.name,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="container">
@@ -143,54 +130,48 @@ export default function App() {
         </div>
       )}
 
-      <nav className="tabs view-tabs">
-        {VIEWS.map((v) => (
-          <button key={v.key} className={`tab ${view === v.key ? 'active' : ''}`} onClick={() => setView(v.key)}>
-            {v.label}
-          </button>
-        ))}
-      </nav>
+      <ExpenseForm
+        categories={categories}
+        paymentMethods={paymentMethods}
+        onSubmit={addExpense}
+        onError={setError}
+        categoryActions={categoryActions}
+        paymentActions={paymentActions}
+      />
 
-      {view === 'financing' ? (
-        <FinancingSimulator simulations={simulations} actions={simulationActions} onError={setError} />
-      ) : (
-        <>
-          <ExpenseForm
-            categories={categories}
-            paymentMethods={paymentMethods}
-            onSubmit={addExpense}
-            onError={setError}
-            categoryActions={categoryActions}
-            paymentActions={paymentActions}
-          />
+      <div className="toolbar">
+        <CategoryFilter
+          categories={categories}
+          value={filterCategoryId}
+          onChange={setFilterCategoryId}
+          paymentMethods={paymentMethods}
+          paymentValue={filterPaymentId}
+          onPaymentChange={setFilterPaymentId}
+        />
+      </div>
 
-          <div className="toolbar">
-            <CategoryFilter categories={categories} value={filterCategoryId} onChange={setFilterCategoryId} />
-          </div>
+      <ExpenseCharts
+        expenses={byPayment}
+        filteredExpenses={visible}
+        activeCategoryName={activeFilterName}
+      />
 
-          <ExpenseCharts
-            expenses={expenses}
-            filteredExpenses={visible}
-            activeCategoryName={activeCategoryName}
-          />
+      <ExpenseList
+        expenses={visible}
+        loading={loading}
+        filtered={Boolean(filterCategoryId || filterPaymentId)}
+        editingId={editingId}
+        onEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onSave={saveExpense}
+        onDelete={deleteExpense}
+        onError={setError}
+        categories={categories}
+        paymentMethods={paymentMethods}
+        categoryActions={categoryActions}
+        paymentActions={paymentActions}
+      />
 
-          <ExpenseList
-            expenses={visible}
-            loading={loading}
-            filtered={!!filterCategoryId}
-            editingId={editingId}
-            onEdit={setEditingId}
-            onCancelEdit={() => setEditingId(null)}
-            onSave={saveExpense}
-            onDelete={deleteExpense}
-            onError={setError}
-            categories={categories}
-            paymentMethods={paymentMethods}
-            categoryActions={categoryActions}
-            paymentActions={paymentActions}
-          />
-        </>
-      )}
       <ManagePanel
         open={manageOpen}
         onClose={() => setManageOpen(false)}
