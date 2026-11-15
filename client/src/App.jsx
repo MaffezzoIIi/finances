@@ -7,9 +7,17 @@ import ExpenseList from './components/ExpenseList.jsx';
 import ExpenseCharts from './components/ExpenseCharts.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import ManagePanel from './components/ManagePanel.jsx';
+import FinancingSimulator from './components/FinancingSimulator.jsx';
+
+const VIEWS = [
+  { key: 'expenses', label: '🧾 Gastos' },
+  { key: 'financing', label: '🏠 Financiamento' },
+];
 
 export default function App() {
+  const [view, setView] = useState('expenses');
   const [expenses, setExpenses] = useState([]);
+  const [simulations, setSimulations] = useState([]);
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [filterCategoryId, setFilterCategoryId] = useState('');
@@ -19,14 +27,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    const [exp, cats, pms] = await Promise.all([
+    const [exp, cats, pms, sims] = await Promise.all([
       api.expenses.list(),
       api.categories.list(),
       api.paymentMethods.list(),
+      api.financingSimulations.list(),
     ]);
     setExpenses(exp);
     setCategories(cats);
     setPaymentMethods(pms);
+    setSimulations(sims);
     setFilterCategoryId((f) => (f && !cats.some((c) => String(c.id) === f) ? '' : f));
   }, []);
 
@@ -91,6 +101,25 @@ export default function App() {
     });
   };
 
+  const simulationActions = {
+    create: (data) => run(async () => {
+      const sim = await api.financingSimulations.create(data);
+      await loadAll();
+      return sim;
+    }),
+    update: (id, data) => run(async () => {
+      await api.financingSimulations.update(id, data);
+      await loadAll();
+    }),
+    remove: (sim) => {
+      if (!window.confirm(`Excluir a simulação "${sim.name}"?`)) return null;
+      return run(async () => {
+        await api.financingSimulations.remove(sim.id);
+        await loadAll();
+      });
+    },
+  };
+
   const visible = filterCategoryId
     ? expenses.filter((e) => String(e.categoryId) === filterCategoryId)
     : expenses;
@@ -114,41 +143,54 @@ export default function App() {
         </div>
       )}
 
-      <ExpenseForm
-        categories={categories}
-        paymentMethods={paymentMethods}
-        onSubmit={addExpense}
-        onError={setError}
-        categoryActions={categoryActions}
-        paymentActions={paymentActions}
-      />
+      <nav className="tabs view-tabs">
+        {VIEWS.map((v) => (
+          <button key={v.key} className={`tab ${view === v.key ? 'active' : ''}`} onClick={() => setView(v.key)}>
+            {v.label}
+          </button>
+        ))}
+      </nav>
 
-      <div className="toolbar">
-        <CategoryFilter categories={categories} value={filterCategoryId} onChange={setFilterCategoryId} />
-      </div>
+      {view === 'financing' ? (
+        <FinancingSimulator simulations={simulations} actions={simulationActions} onError={setError} />
+      ) : (
+        <>
+          <ExpenseForm
+            categories={categories}
+            paymentMethods={paymentMethods}
+            onSubmit={addExpense}
+            onError={setError}
+            categoryActions={categoryActions}
+            paymentActions={paymentActions}
+          />
 
-      <ExpenseCharts
-        expenses={expenses}
-        filteredExpenses={visible}
-        activeCategoryName={activeCategoryName}
-      />
+          <div className="toolbar">
+            <CategoryFilter categories={categories} value={filterCategoryId} onChange={setFilterCategoryId} />
+          </div>
 
-      <ExpenseList
-        expenses={visible}
-        loading={loading}
-        filtered={!!filterCategoryId}
-        editingId={editingId}
-        onEdit={setEditingId}
-        onCancelEdit={() => setEditingId(null)}
-        onSave={saveExpense}
-        onDelete={deleteExpense}
-        onError={setError}
-        categories={categories}
-        paymentMethods={paymentMethods}
-        categoryActions={categoryActions}
-        paymentActions={paymentActions}
-      />
+          <ExpenseCharts
+            expenses={expenses}
+            filteredExpenses={visible}
+            activeCategoryName={activeCategoryName}
+          />
 
+          <ExpenseList
+            expenses={visible}
+            loading={loading}
+            filtered={!!filterCategoryId}
+            editingId={editingId}
+            onEdit={setEditingId}
+            onCancelEdit={() => setEditingId(null)}
+            onSave={saveExpense}
+            onDelete={deleteExpense}
+            onError={setError}
+            categories={categories}
+            paymentMethods={paymentMethods}
+            categoryActions={categoryActions}
+            paymentActions={paymentActions}
+          />
+        </>
+      )}
       <ManagePanel
         open={manageOpen}
         onClose={() => setManageOpen(false)}

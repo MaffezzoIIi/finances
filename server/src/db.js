@@ -27,6 +27,18 @@ export function openDb(file) {
       created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
       updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS financing_simulations (
+      id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name                       TEXT    NOT NULL,
+      balance_cents              INTEGER NOT NULL CHECK (balance_cents > 0),
+      annual_rate_bps            INTEGER NOT NULL CHECK (annual_rate_bps BETWEEN 0 AND 10000),
+      monthly_payment_cents      INTEGER NOT NULL CHECK (monthly_payment_cents > 0),
+      monthly_fees_cents         INTEGER NOT NULL DEFAULT 0 CHECK (monthly_fees_cents >= 0),
+      fgts_balance_cents         INTEGER NOT NULL DEFAULT 0 CHECK (fgts_balance_cents >= 0),
+      fgts_monthly_deposit_cents INTEGER NOT NULL DEFAULT 0 CHECK (fgts_monthly_deposit_cents >= 0),
+      created_at                 TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at                 TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   const cols = db.prepare('PRAGMA table_info(expenses)').all();

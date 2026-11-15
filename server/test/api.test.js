@@ -154,3 +154,67 @@ describe('/api/expenses', () => {
     await request(app).delete(`/api/expenses/${created.id}`).expect(404);
   });
 });
+
+const SIM_PATH = '/api/financing-simulations';
+const newSimulation = (overrides = {}, status = 201) =>
+  request(app)
+    .post(SIM_PATH)
+    .send({
+      name: 'Apartamento',
+      balanceCents: 30000000,
+      annualRateBps: 1050,
+      monthlyPaymentCents: 350000,
+      ...overrides,
+    })
+    .expect(status);
+
+describe(SIM_PATH, () => {
+  test('POST creates with optional fields defaulting to 0', async () => {
+    const { body } = await newSimulation({ name: '  Apartamento  ' });
+    assert.deepEqual(body, {
+      id: body.id,
+      name: 'Apartamento',
+      balanceCents: 30000000,
+      annualRateBps: 1050,
+      monthlyPaymentCents: 350000,
+      monthlyFeesCents: 0,
+      fgtsBalanceCents: 0,
+      fgtsMonthlyDepositCents: 0,
+    });
+  });
+
+  test('POST rejects invalid payloads', async () => {
+    await newSimulation({ name: '  ' }, 400);
+    await newSimulation({ balanceCents: 0 }, 400);
+    await newSimulation({ annualRateBps: 10001 }, 400);
+    await newSimulation({ annualRateBps: 10.5 }, 400);
+    await newSimulation({ monthlyPaymentCents: 0 }, 400);
+    await newSimulation({ monthlyFeesCents: 350000 }, 400);
+    await newSimulation({ fgtsBalanceCents: -1 }, 400);
+    await newSimulation({ fgtsMonthlyDepositCents: 1.5 }, 400);
+    assert.equal((await request(app).get(SIM_PATH)).body.length, 0);
+  });
+
+  test('PUT updates / 404 / 400, GET lists by name', async () => {
+    const { body: b } = await newSimulation({ name: 'Casa' });
+    await newSimulation({ name: 'Apartamento' });
+    const { body: updated } = await request(app)
+      .put(`${SIM_PATH}/${b.id}`)
+      .send({ ...b, fgtsBalanceCents: 2000000, fgtsMonthlyDepositCents: 40000 })
+      .expect(200);
+    assert.equal(updated.fgtsBalanceCents, 2000000);
+    assert.equal(updated.fgtsMonthlyDepositCents, 40000);
+
+    const list = (await request(app).get(SIM_PATH).expect(200)).body;
+    assert.deepEqual(list.map((s) => s.name), ['Apartamento', 'Casa']);
+
+    await request(app).put(`${SIM_PATH}/9999`).send(b).expect(404);
+    await request(app).put(`${SIM_PATH}/${b.id}`).send({ ...b, balanceCents: -5 }).expect(400);
+  });
+
+  test('DELETE removes / 404', async () => {
+    const { body } = await newSimulation();
+    await request(app).delete(`${SIM_PATH}/${body.id}`).expect(204);
+    await request(app).delete(`${SIM_PATH}/${body.id}`).expect(404);
+  });
+});
