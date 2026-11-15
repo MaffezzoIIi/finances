@@ -13,6 +13,7 @@ export default function App() {
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [filterCategoryId, setFilterCategoryId] = useState('');
+  const [filterPaymentId, setFilterPaymentId] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +29,7 @@ export default function App() {
     setCategories(cats);
     setPaymentMethods(pms);
     setFilterCategoryId((f) => (f && !cats.some((c) => String(c.id) === f) ? '' : f));
+    setFilterPaymentId((f) => (f && !pms.some((p) => String(p.id) === f) ? '' : f));
   }, []);
 
   // Runs an action, shows API errors in the banner; returns the result or null on failure.
@@ -91,12 +93,16 @@ export default function App() {
     });
   };
 
-  const visible = filterCategoryId
-    ? expenses.filter((e) => String(e.categoryId) === filterCategoryId)
+  const byPayment = filterPaymentId
+    ? expenses.filter((e) => String(e.paymentMethodId) === filterPaymentId)
     : expenses;
-  const activeCategoryName = filterCategoryId
-    ? categories.find((c) => String(c.id) === filterCategoryId)?.name
-    : '';
+  const visible = filterCategoryId
+    ? byPayment.filter((e) => String(e.categoryId) === filterCategoryId)
+    : byPayment;
+  const activeFilterName = [
+    filterCategoryId && categories.find((c) => String(c.id) === filterCategoryId)?.name,
+    filterPaymentId && paymentMethods.find((p) => String(p.id) === filterPaymentId)?.name,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="container">
@@ -124,19 +130,26 @@ export default function App() {
       />
 
       <div className="toolbar">
-        <CategoryFilter categories={categories} value={filterCategoryId} onChange={setFilterCategoryId} />
+        <CategoryFilter
+          categories={categories}
+          value={filterCategoryId}
+          onChange={setFilterCategoryId}
+          paymentMethods={paymentMethods}
+          paymentValue={filterPaymentId}
+          onPaymentChange={setFilterPaymentId}
+        />
       </div>
 
       <ExpenseCharts
-        expenses={expenses}
+        expenses={byPayment}
         filteredExpenses={visible}
-        activeCategoryName={activeCategoryName}
+        activeCategoryName={activeFilterName}
       />
 
       <ExpenseList
         expenses={visible}
         loading={loading}
-        filtered={!!filterCategoryId}
+        filtered={Boolean(filterCategoryId || filterPaymentId)}
         editingId={editingId}
         onEdit={setEditingId}
         onCancelEdit={() => setEditingId(null)}

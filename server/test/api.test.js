@@ -119,17 +119,24 @@ describe('/api/expenses', () => {
     assert.equal((await request(app).get('/api/expenses')).body.length, 0);
   });
 
-  test('GET orders by date desc and filters by category', async () => {
+  test('GET orders by date desc and filters by category and paymentMethod', async () => {
     const transporte = await idOf('/api/categories', 'Transporte');
-    await newExpense({ description: 'A', date: '2026-01-01' });
+    const boleto = await idOf('/api/payment-methods', 'Boleto');
+    await newExpense({ description: 'A', date: '2026-01-01', paymentMethodId: boleto });
     await newExpense({ description: 'B', date: '2026-03-01', categoryId: transporte });
-    await newExpense({ description: 'C', date: '2026-02-01' });
+    await newExpense({ description: 'C', date: '2026-02-01', categoryId: transporte, paymentMethodId: boleto });
 
     const all = (await request(app).get('/api/expenses').expect(200)).body;
     assert.deepEqual(all.map((e) => e.description), ['B', 'C', 'A']);
 
-    const filtered = (await request(app).get(`/api/expenses?categoryId=${transporte}`)).body;
-    assert.deepEqual(filtered.map((e) => e.description), ['B']);
+    const byCategory = (await request(app).get(`/api/expenses?categoryId=${transporte}`)).body;
+    assert.deepEqual(byCategory.map((e) => e.description), ['B', 'C']);
+
+    const byPayment = (await request(app).get(`/api/expenses?paymentMethodId=${boleto}`)).body;
+    assert.deepEqual(byPayment.map((e) => e.description), ['C', 'A']);
+
+    const byBoth = (await request(app).get(`/api/expenses?categoryId=${transporte}&paymentMethodId=${boleto}`)).body;
+    assert.deepEqual(byBoth.map((e) => e.description), ['C']);
   });
 
   test('PUT updates / 404 / 400', async () => {
