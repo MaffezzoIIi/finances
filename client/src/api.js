@@ -21,4 +21,5 @@ export const api = {
   expenses: crud('/expenses'),
   categories: crud('/categories'),
   paymentMethods: crud('/payment-methods'),
+  financingSimulations: crud('/financing-simulations'),
 };

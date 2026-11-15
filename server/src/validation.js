@@ -37,3 +37,32 @@ export function validateExpense(db, body = {}) {
   if (errors.length) throw new HttpError(400, errors.join(' '));
   return { description, amountCents, date, categoryId, paymentMethodId };
 }
+
+const isCents = (v, min) => Number.isInteger(v) && v >= min;
+
+export function validateSimulation(body = {}) {
+  const errors = [];
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const {
+    balanceCents, annualRateBps, monthlyPaymentCents,
+    monthlyFeesCents = 0, fgtsBalanceCents = 0, fgtsMonthlyDepositCents = 0,
+  } = body;
+
+  if (!name) errors.push('O nome é obrigatório.');
+  else if (name.length > 100) errors.push('O nome deve ter no máximo 100 caracteres.');
+  if (!isCents(balanceCents, 1)) errors.push('O saldo devedor deve ser maior que zero.');
+  if (!Number.isInteger(annualRateBps) || annualRateBps < 0 || annualRateBps > 10000) {
+    errors.push('A taxa de juros deve ser entre 0% e 100% ao ano.');
+  }
+  if (!isCents(monthlyPaymentCents, 1)) errors.push('O pagamento mensal deve ser maior que zero.');
+  if (!isCents(monthlyFeesCents, 0)) errors.push('Seguros/taxas inválidos.');
+  else if (monthlyFeesCents >= monthlyPaymentCents) errors.push('As taxas não podem ser maiores que o pagamento.');
+  if (!isCents(fgtsBalanceCents, 0)) errors.push('Saldo do FGTS inválido.');
+  if (!isCents(fgtsMonthlyDepositCents, 0)) errors.push('Depósito mensal do FGTS inválido.');
+
+  if (errors.length) throw new HttpError(400, errors.join(' '));
+  return {
+    name, balanceCents, annualRateBps, monthlyPaymentCents,
+    monthlyFeesCents, fgtsBalanceCents, fgtsMonthlyDepositCents,
+  };
+}

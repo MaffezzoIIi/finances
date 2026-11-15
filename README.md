@@ -25,6 +25,10 @@ npm run build         # build de produção do frontend (client/dist)
 ## Funcionalidades
 
 - **Gráficos de gastos**: rosca + barras de participação por categoria (com filtro por mês ou todos os meses) e evolução mensal dos últimos 6 meses.
+- **🏠 Simulador de financiamento** (aba *Financiamento*): informe saldo devedor, juros efetivos ao ano, pagamento mensal,
+  seguros/taxas e FGTS (saldo atual + depósito mensal) e veja em quantos meses quita, data de quitação, juros totais,
+  economia com FGTS, tabela por ano e gráfico do saldo. O FGTS é usado agora e a cada 24 meses (rendendo 3% a.a.).
+  É uma estimativa: não considera a correção pela TR. Simulações podem ser salvas.
 - Cadastro de gasto: descrição, valor (formato `12,50`), data, categoria e forma de pagamento.
 - Lista ordenada pela data mais recente, com ✏️ edição inline (Enter salva, Esc cancela) e 🗑️ exclusão com confirmação.
 - Filtro por categoria e total no rodapé (respeita o filtro).
@@ -42,3 +46,5 @@ npm run build         # build de produção do frontend (client/dist)
 | PUT/DELETE | `/api/categories/:id` | Renomeia / exclui (409 se em uso) |
 | GET/POST | `/api/payment-methods` | Idem categorias |
 | PUT/DELETE | `/api/payment-methods/:id` | Idem categorias |
+| GET/POST | `/api/financing-simulations` | Lista / cria simulação de financiamento |
+| PUT/DELETE | `/api/financing-simulations/:id` | Atualiza / exclui simulação |

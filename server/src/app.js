@@ -1,6 +1,7 @@
 import express from 'express';
 import { createLookupRouter } from './routes/lookup.js';
 import { createExpensesRouter } from './routes/expenses.js';
+import { createFinancingRouter } from './routes/financing.js';
 
 export function createApp(db) {
   const app = express();
@@ -13,6 +14,7 @@ export function createApp(db) {
     table: 'payment_methods', fkColumn: 'payment_method_id', label: 'Forma de pagamento',
   }));
   app.use('/api/expenses', createExpensesRouter(db));
+  app.use('/api/financing-simulations', createFinancingRouter(db));
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 

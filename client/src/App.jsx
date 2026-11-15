@@ -7,9 +7,17 @@ import ExpenseList from './components/ExpenseList.jsx';
 import ExpenseCharts from './components/ExpenseCharts.jsx';
 import CategoryFilter from './components/CategoryFilter.jsx';
 import ManagePanel from './components/ManagePanel.jsx';
+import FinancingSimulator from './components/FinancingSimulator.jsx';
+
+const VIEWS = [
+  { key: 'expenses', label: '🧾 Gastos' },
+  { key: 'financing', label: '🏠 Financiamento' },
+];
 
 export default function App() {
+  const [view, setView] = useState('expenses');
   const [expenses, setExpenses] = useState([]);
+  const [simulations, setSimulations] = useState([]);
   const [categories, setCategories] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [filterCategoryId, setFilterCategoryId] = useState('');
@@ -20,14 +28,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
-    const [exp, cats, pms] = await Promise.all([
+    const [exp, cats, pms, sims] = await Promise.all([
       api.expenses.list(),
       api.categories.list(),
       api.paymentMethods.list(),
+      api.financingSimulations.list(),
     ]);
     setExpenses(exp);
     setCategories(cats);
     setPaymentMethods(pms);
+    setSimulations(sims);
     setFilterCategoryId((f) => (f && !cats.some((c) => String(c.id) === f) ? '' : f));
     setFilterPaymentId((f) => (f && !pms.some((p) => String(p.id) === f) ? '' : f));
   }, []);
